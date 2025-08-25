@@ -1,6 +1,6 @@
 // File: pages/api/scrapeAntarvasnaPhotos.js
 import axios from "axios";
-import * as cheerio from "cheerio";
+import { load } from "cheerio";
 import { handleGetFullAlbum } from "./utils";
 
 export default async function handler(req, res) {
@@ -28,7 +28,8 @@ export default async function handler(req, res) {
       },
     });
 
-    const $ = cheerio.load(response.data);
+        const $ = load(response.data);
+
 
     const posts = $(".inside-article").toArray();
     for (const element of posts) {

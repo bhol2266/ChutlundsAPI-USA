@@ -1,3 +1,6 @@
+import { load } from "cheerio";
+
+
 export async function handleGetFullAlbum(url) {
   try {
     const response = await fetch(url, {
@@ -11,7 +14,9 @@ export async function handleGetFullAlbum(url) {
     });
 
     const html = await response.text();
-    const $ = cheerio.load(html);
+
+            const $ = load(html);
+
 
     const uploaded_by = $(".entry-meta .author .author-name").text();
     const content = $(".entry-content p").last().text();
