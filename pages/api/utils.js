@@ -24,7 +24,7 @@ export async function handleGetFullAlbum(url) {
     const imageArray = [];
     $(".entry-content p a").each((_, el) => {
       const href = $(el).attr("href");
-      if (href?.includes("https://www.antarvasnaphotos2.com")) {
+      if (href?.includes("https://www.antarvasnaphotos2.com") && href.includes("wp-content")) {
         imageArray.push(href);
       }
     });
