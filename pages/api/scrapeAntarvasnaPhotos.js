@@ -28,7 +28,7 @@ export default async function handler(req, res) {
       },
     });
 
-        const $ = load(response.data);
+    const $ = load(response.data);
 
 
     const posts = $(".inside-article").toArray();
@@ -47,7 +47,12 @@ export default async function handler(req, res) {
         thumbnail = $(element).find(".post-image img").attr("src");
       }
 
-      const category = $(element).find(".cat-links a").text();
+      const category = $(element) //because sometimes it contain mutiple categories
+        .find(".cat-links a")
+        .map((i, el) => $(el).text())
+        .get()
+        .join(", ");
+
       const category_href = $(element).find(".cat-links a").attr("href");
       const description = $(element).find("div.entry-summary p").text().trim();
       const tags = $(element).find("span.tags-links a").toArray().map((el) => $(el).text().trim());
