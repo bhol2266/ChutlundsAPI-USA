@@ -40,7 +40,7 @@ export default async function handler(req, res) {
 
 
             finalDataArray.push({
-                original_fullalbum_href,
+                url,
                 category,
             });
         }
