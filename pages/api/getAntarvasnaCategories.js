@@ -29,7 +29,6 @@ export default async function handler(req, res) {
         for (const element of posts) {
 
 
-            const original_fullalbum_href = $(element).find(".entry-title a").attr("href");
             const category = $(element) //because sometimes it contain mutiple categories
                 .find(".cat-links a")
                 .map((i, el) => $(el).text())
