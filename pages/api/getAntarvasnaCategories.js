@@ -10,9 +10,7 @@ export default async function handler(req, res) {
     try {
         const { url } = req.body;
 
-        if (!page) {
-            return res.status(400).json({ message: "Missing page number" });
-        }
+      let finalDataArray = [];
 
         const response = await axios.get(url, {
             headers: {
