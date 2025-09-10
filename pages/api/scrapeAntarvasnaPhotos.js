@@ -1,7 +1,7 @@
 // File: pages/api/scrapeAntarvasnaPhotos.js
 import axios from "axios";
 import { load } from "cheerio";
-import { handleGetFullAlbum } from "./utils";
+import { handleGetFullAlbum_Antarvasna } from "./utils";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -58,9 +58,10 @@ export default async function handler(req, res) {
       const tags = $(element).find("span.tags-links a").toArray().map((el) => $(el).text().trim());
       const dateString = $(element).find("time.entry-date").attr("datetime");
       const date = new Date(dateString);
-      const views = $(element).find("span.post-views-eye").text().trim();
+      const viewsText = $(element).find("span.post-views-eye").text().trim();
+      const views = parseInt(viewsText.replace(/,/g, ""), 10);
 
-      const fullAlbumData = await handleGetFullAlbum(original_fullalbum_href);
+      const fullAlbumData = await handleGetFullAlbum_Antarvasna(original_fullalbum_href);
       if (!fullAlbumData) {
         console.error("Failed to fetch full album:", original_fullalbum_href);
         continue;
