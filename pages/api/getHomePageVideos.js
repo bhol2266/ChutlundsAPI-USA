@@ -29,7 +29,8 @@ export default async function handler(req, res) {
           const title = $(el).find("picture img").attr("alt");
         const duration = $(el).find("[data-testid='video-item-length']").text().trim();
             const views = $(el).find('span[data-testid="views"]').find('span').last().text().trim();
-          const likePercentage = $(el).find('span[data-testid="rates"]').find('span').last().text().trim();
+   let likePercentage = $(el).find('span[data-testid="rates"]').find('span').last().text().trim();
+      if (likePercentage.length == 0) likePercentage = "75%"       
           const channelName = $(el).find('a[data-testid="title"] span').text().trim();
           const channelHref = $(el).find('a[data-testid="title"]').attr('href') || '';
           const videoBadge = $(el).find("[data-testid='video-item-resolution']").text().trim();
