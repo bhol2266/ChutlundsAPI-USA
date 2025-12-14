@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     let finalDataArray_Array = [];
     let trendingChannelArray = [];
     let tagsArray = [];
-    let trendingCategoryArray = [];
+    let trendingCategoryArray = [];  
     let trendingPornstarsArray = [];
 
     try {
