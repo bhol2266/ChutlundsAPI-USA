@@ -1,113 +1,133 @@
-// app/api/scrape/route.js
-import { NextResponse } from "next/server";
-import * as cheerio from "cheerio";
+const axios = require('axios');
+const cheerio = require('cheerio');
 
-// --- Scrape listing page ---
-async function scrapeListingPage(url) {
-  const res = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0 (compatible; bot/1.0)" },
-  });
-  const html = await res.text();
-  const $ = cheerio.load(html);
+const freeSexkahani = async (url) => {
+    let finalDataArray = [];
+    let categoryTitle = '';
+    let categoryDescription = '';
+    let pagination_nav_pages = [];
 
-  const finalDataArray = [];
+    const response = await axios.get(url);
+    const html = response.data;
+    const $$ = cheerio.load(html);
 
-  $("article").each((_, el) => {
-    const title = $(el).find("h2.entry-title a").text().trim();
-    const href = $(el).find("h2.entry-title a").attr("href") || "";
-    finalDataArray.push({ Title: title, href });
-  });
+    $$('article').each((i, el) => {
+        let Title = '';
+        let author = {};
+        let date = {};
+        let completeDate = '';
+        let views = '';
+        let description = '';
+        let href = '';
+        let tags = [];
+        let authorName = '';
+        let authorHref = '';
+        let category = '';
 
-  return finalDataArray;
-}
+        const $ = cheerio.load(el);
 
-// --- Scrape individual story detail page ---
-async function scrapeStoryDetail(storyUrl) {
-  const res = await fetch(storyUrl, {
-    headers: { "User-Agent": "Mozilla/5.0 (compatible; bot/1.0)" },
-  });
-  const html = await res.text();
-  const $ = cheerio.load(html);
+        $('.entry-title a').each((i, el) => {
+            Title = $(el).text();
+            href = $(el).attr('href');
+        });
 
-  const Title = $("h1.entry-title").text().trim();
+        $('.cat-links a').each((i, el) => {
+            category = $(el).text();
+        });
 
-  // Author
-  const authorName = $(".author-name, .entry-author a").first().text().trim();
-  const authorHref = $(".entry-author a").first().attr("href") || "";
+        $('.author-name').each((i, el) => {
+            authorName = $(el).text();
+        });
 
-  // Description paragraphs
-  const description = [];
-  $(".entry-content p").each((_, el) => {
-    const text = $(el).text().trim();
-    if (text.length > 0) description.push(text);
-  });
+        $('.url.fn.n').each((i, el) => {
+            authorHref = $(el).attr('href');
+        });
 
-  // Category
-  const categoryTitle = $(".cat-links a").first().text().trim();
+        author = {
+            name: authorName,
+            href: authorHref
+                ? authorHref.substring(authorHref.indexOf('author/') + 7).replace(/\//g, '')
+                : '',
+        };
 
-  // Date  (format: YYYYMMDD)
-  const dateRaw = $("time.entry-date").attr("datetime") || "";
-  const completeDate = dateRaw.replace(/-/g, "").substring(0, 8) || "00000000";
+        $('.posted-on time').each((i, el) => {
+            const data = $(el).text();
+            date = {
+                day: data.substring(0, 2),
+                month: data.substring(3, 5),
+                year: data.substring(6),
+            };
+            completeDate = parseInt(data.substring(6) + data.substring(3, 5) + data.substring(0, 2));
+        });
 
-  // Related story links
-  const relatedStoriesLinks = [];
-  $(".related-posts a, .yarpp-related a").each((_, el) => {
-    relatedStoriesLinks.push({
-      title: $(el).text().trim(),
-      href: $(el).attr("href") || "",
+        $('.post-views-eye').each((i, el) => {
+            views = $(el).text();
+        });
+
+        $('.entry-content p:nth-child(1)').each((i, el) => {
+            description = $(el).text();
+        });
+
+        $('.tags-links').each((i, el) => {
+            const array = [];
+            const select = cheerio.load(el);
+            select('a').each((i, el) => {
+                array.push({ name: $(el).text(), href: $(el).attr('href') });
+            });
+            tags = array;
+        });
+
+        finalDataArray.push({
+            Title,
+            author,
+            date,
+            views,
+            completeDate,
+            category,
+            description,
+            href,
+            tags,
+        });
     });
-  });
 
-  // Links inside paragraphs
-  const storiesLink_insideParagrapgh = [];
-  $(".entry-content p a").each((_, el) => {
-    storiesLink_insideParagrapgh.push({
-      title: $(el).text().trim(),
-      href: $(el).attr("href") || "",
+    $$('.page-title').each((i, el) => {
+        categoryTitle = $$(el).text();
     });
-  });
 
-  return {
-    Title,
-    author: { name: authorName, href: authorHref },
-    description,
-    category: { title: categoryTitle },
-    completeDate,
-    relatedStoriesLinks,
-    storiesLink_insideParagrapgh,
-  };
-}
+    $$('.taxonomy-description  p').each((i, el) => {
+        const data = $$(el).text();
+        categoryDescription = categoryDescription
+            ? `${categoryDescription}\n\n\n${data}`
+            : data;
+    });
 
-// --- Route Handler ---
-export async function POST(request) {
-  try {
-    const body = await request.json();
-    const { mode, url } = body;
+    $$('.nav-links').children().each((i, el) => {
+        pagination_nav_pages.push($$(el).text());
+    });
 
-    // mode = "listing" | "story"
-    if (!mode || !url) {
-      return NextResponse.json(
-        { error: "Missing required fields: mode, url" },
-        { status: 400 }
-      );
+    return {
+        finalDataArray,
+        categoryTitle,
+        categoryDescription,
+        pagination_nav_pages,
+    };
+};
+
+export default async function handler(req, res) {
+
+
+    const body_object = req.body;
+    let url = body_object.url;
+
+    if (!url) {
+        return res.status(400).json({ error: 'Missing URL parameter' });
     }
 
-    if (mode === "listing") {
-      const finalDataArray = await scrapeListingPage(url);
-      return NextResponse.json({ success: true, finalDataArray });
+    try {
+        const result = await freeSexkahani(url);
+        return res.status(200).json(result);
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Failed to fetch data' });
     }
-
-    if (mode === "story") {
-      const storyData = await scrapeStoryDetail(url);
-      return NextResponse.json({ success: true, storyData });
-    }
-
-    return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
-  } catch (error) {
-    console.error("Scrape API error:", error);
-    return NextResponse.json(
-      { error: "Scraping failed", details: error.message },
-      { status: 500 }
-    );
-  }
 }
