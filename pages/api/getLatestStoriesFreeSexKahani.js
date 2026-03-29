@@ -1,133 +1,113 @@
-const axios = require('axios');
-const cheerio = require('cheerio');
+// app/api/scrape/route.js
+import { NextResponse } from "next/server";
+import * as cheerio from "cheerio";
 
-const freeSexkahani = async (url) => {
-    let finalDataArray = [];
-    let categoryTitle = '';
-    let categoryDescription = '';
-    let pagination_nav_pages = [];
+// --- Scrape listing page ---
+async function scrapeListingPage(url) {
+  const res = await fetch(url, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; bot/1.0)" },
+  });
+  const html = await res.text();
+  const $ = cheerio.load(html);
 
-    const response = await axios.get(url);
-    const html = response.data;
-    const $$ = cheerio.load(html);
+  const finalDataArray = [];
 
-    $$('article').each((i, el) => {
-        let Title = '';
-        let author = {};
-        let date = {};
-        let completeDate = '';
-        let views = '';
-        let description = '';
-        let href = '';
-        let tags = [];
-        let authorName = '';
-        let authorHref = '';
-        let category = '';
+  $("article").each((_, el) => {
+    const title = $(el).find("h2.entry-title a").text().trim();
+    const href = $(el).find("h2.entry-title a").attr("href") || "";
+    finalDataArray.push({ Title: title, href });
+  });
 
-        const $ = cheerio.load(el);
+  return finalDataArray;
+}
 
-        $('.entry-title a').each((i, el) => {
-            Title = $(el).text();
-            href = $(el).attr('href');
-        });
+// --- Scrape individual story detail page ---
+async function scrapeStoryDetail(storyUrl) {
+  const res = await fetch(storyUrl, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; bot/1.0)" },
+  });
+  const html = await res.text();
+  const $ = cheerio.load(html);
 
-        $('.cat-links a').each((i, el) => {
-            category = $(el).text();
-        });
+  const Title = $("h1.entry-title").text().trim();
 
-        $('.author-name').each((i, el) => {
-            authorName = $(el).text();
-        });
+  // Author
+  const authorName = $(".author-name, .entry-author a").first().text().trim();
+  const authorHref = $(".entry-author a").first().attr("href") || "";
 
-        $('.url.fn.n').each((i, el) => {
-            authorHref = $(el).attr('href');
-        });
+  // Description paragraphs
+  const description = [];
+  $(".entry-content p").each((_, el) => {
+    const text = $(el).text().trim();
+    if (text.length > 0) description.push(text);
+  });
 
-        author = {
-            name: authorName,
-            href: authorHref
-                ? authorHref.substring(authorHref.indexOf('author/') + 7).replace(/\//g, '')
-                : '',
-        };
+  // Category
+  const categoryTitle = $(".cat-links a").first().text().trim();
 
-        $('.posted-on time').each((i, el) => {
-            const data = $(el).text();
-            date = {
-                day: data.substring(0, 2),
-                month: data.substring(3, 5),
-                year: data.substring(6),
-            };
-            completeDate = parseInt(data.substring(6) + data.substring(3, 5) + data.substring(0, 2));
-        });
+  // Date  (format: YYYYMMDD)
+  const dateRaw = $("time.entry-date").attr("datetime") || "";
+  const completeDate = dateRaw.replace(/-/g, "").substring(0, 8) || "00000000";
 
-        $('.post-views-eye').each((i, el) => {
-            views = $(el).text();
-        });
-
-        $('.entry-content p:nth-child(1)').each((i, el) => {
-            description = $(el).text();
-        });
-
-        $('.tags-links').each((i, el) => {
-            const array = [];
-            const select = cheerio.load(el);
-            select('a').each((i, el) => {
-                array.push({ name: $(el).text(), href: $(el).attr('href') });
-            });
-            tags = array;
-        });
-
-        finalDataArray.push({
-            Title,
-            author,
-            date,
-            views,
-            completeDate,
-            category,
-            description,
-            href,
-            tags,
-        });
+  // Related story links
+  const relatedStoriesLinks = [];
+  $(".related-posts a, .yarpp-related a").each((_, el) => {
+    relatedStoriesLinks.push({
+      title: $(el).text().trim(),
+      href: $(el).attr("href") || "",
     });
+  });
 
-    $$('.page-title').each((i, el) => {
-        categoryTitle = $$(el).text();
+  // Links inside paragraphs
+  const storiesLink_insideParagrapgh = [];
+  $(".entry-content p a").each((_, el) => {
+    storiesLink_insideParagrapgh.push({
+      title: $(el).text().trim(),
+      href: $(el).attr("href") || "",
     });
+  });
 
-    $$('.taxonomy-description  p').each((i, el) => {
-        const data = $$(el).text();
-        categoryDescription = categoryDescription
-            ? `${categoryDescription}\n\n\n${data}`
-            : data;
-    });
+  return {
+    Title,
+    author: { name: authorName, href: authorHref },
+    description,
+    category: { title: categoryTitle },
+    completeDate,
+    relatedStoriesLinks,
+    storiesLink_insideParagrapgh,
+  };
+}
 
-    $$('.nav-links').children().each((i, el) => {
-        pagination_nav_pages.push($$(el).text());
-    });
+// --- Route Handler ---
+export async function POST(request) {
+  try {
+    const body = await request.json();
+    const { mode, url } = body;
 
-    return {
-        finalDataArray,
-        categoryTitle,
-        categoryDescription,
-        pagination_nav_pages,
-    };
-};
-
-export default async function handler(req, res) {
-
-
-    const body_object = req.body;
-    let url = body_object.url;
-
-    if (!url) {
-        return res.status(400).json({ error: 'Missing URL parameter' });
+    // mode = "listing" | "story"
+    if (!mode || !url) {
+      return NextResponse.json(
+        { error: "Missing required fields: mode, url" },
+        { status: 400 }
+      );
     }
 
-    try {
-        const result = await freeSexkahani(url);
-        return res.status(200).json(result);
-    } catch (err) {
-        console.error(err);
-        return res.status(500).json({ error: 'Failed to fetch data' });
+    if (mode === "listing") {
+      const finalDataArray = await scrapeListingPage(url);
+      return NextResponse.json({ success: true, finalDataArray });
     }
+
+    if (mode === "story") {
+      const storyData = await scrapeStoryDetail(url);
+      return NextResponse.json({ success: true, storyData });
+    }
+
+    return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
+  } catch (error) {
+    console.error("Scrape API error:", error);
+    return NextResponse.json(
+      { error: "Scraping failed", details: error.message },
+      { status: 500 }
+    );
+  }
 }
